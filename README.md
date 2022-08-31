@@ -1,7 +1,9 @@
 # CMPT469-subproject-heatmap
 
-HEATMAP GRAPH OF SOCIAL MEDIA MESSAGE WITHIN EACH MONTH FROM 6 CONTACTS ON MESSENGER
+Heatmap graph visualizing the number of messages received each month from 6 contacts on social media app Messenger
 
-CREATED USING HTML AND CSS
+Created with HTML AND CSS
+Configured with WebStorm 2021.2.2
 
+Video:
 https://youtu.be/zMrSOvwVRB8
