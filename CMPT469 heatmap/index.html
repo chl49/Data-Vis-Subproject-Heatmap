@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="main.css">
+<html>
+<head>
+    <style>
+        rect.bordered {
+            stroke: #E6E6E6;
+            stroke-width:2px;
+        }
+
+        text.mono {
+            font-size: 9pt;
+            font-family: Consolas, courier;
+            fill: #000;
+        }
+
+        text.axis-workweek {
+            fill: #000;
+        }
+
+        text.axis-worktime {
+            fill: #000;
+        }
+    </style>
+    <script src="https://d3js.org/d3.v4.js"></script>
+</head>
+<title>HEATMAP</title>
+<div class="content">
+    <h1>CMPT 469 Subproject: The Heatmap of my online social messages </h1>
+    <span class="caption">By Herbert Li | chl49@sfu.ca</span>
+    <h2>Documenting Social Media Activity on Messenger App from 2016 to 2021 </h2>
+    <h3>Hover over Name, Month, and Magnitude blocks to highlight node data</h3>
+</div>
+<body>
+<div class="container" id="chart"></div>
+
+<div class="container" id='vis-container'></div>
+
+<div class="container" id="dataset-picker">
+</div>
+
+<script type="text/javascript">
+    const margin = { top: 100, right: 0, bottom: 100, left: 200 },
+        width = 1080 - margin.left - margin.right,
+        height = 430 - margin.top - margin.bottom,
+        //gridSize = Math.floor(width / 24),
+        gridSize = Math.floor(width / 24),
+        legendElementWidth = gridSize*2,
+        buckets = 6,
+        //colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"], // alternatively
+        // colorbrewer.YlGnBu[9]
+        //colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0"],
+        colors = ["#000000","#390167","#740285","#BE1717","#FA9207","#FBCC4D"],
+        excessColors = ["#000000","#390167","#740285","#BE1717","#FA9207","#FBCC4D","#FBCC4D","#FBCC4D","#FBCC4D","#FBCC4D"], // alternatively
+        nameColors = ["#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58","#510101", "#B83B01","#EFAC41","#EBE100"], // alternatively
+        names = ["Curtis", "Richard", "Dunstan", "Rachel", "Rebecca", "Jasmine"],
+        categories = ["name","month","value","top month for name","top name for month"],
+        //days = ["Cat", "Dog", "Squirrel", "Kids", "Raccoon", "Birds", "Me"],
+        days = ["Curtis", "Richard", "Dunstan", "Rachel", "Rebecca", "Jasmine"],
+        //days = ["Cat", "Dog", "Squirrel", "Kids", "Raccoon"],
+        //times = ["1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p", "12p"];
+        times = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+    //datasets = ["data.txt", "data2.txt", "data3.txt"];
+    datasets = ["2016.txt","2017.txt","2018.txt","2019.txt","2020.txt","2021.txt"];
+    datayear = ["12", "13", "14"];
+    var categoryVal = ["1a", "2a", "3a", "4a", "5a"];
+
+    const svg = d3.select("#chart").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    const dayLabels = svg.selectAll(".dayLabel")
+        .data(days)
+        .enter().append("text")
+        .text(function (d) { return d; })
+        .attr("x", 0)
+        .attr("y", (d, i) => i * gridSize)
+        .style("text-anchor", "end")
+        .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+        .attr("class", (d, i) => ((i >= 0 && i <= 4) ? "dayLabel mono axis axis-workweek" : "dayLabel mono axis"));
+
+    const timeLabels = svg.selectAll(".timeLabel")
+        .data(times)
+        .enter().append("text")
+        .text((d) => d)
+        .attr("x", (d, i) => i * gridSize)
+        .attr("y", 0)
+        .style("text-anchor", "middle")
+        .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+        .attr("class", (d, i) => ((i >= 7 && i <= 16) ? "timeLabel mono axis axis-worktime" : "timeLabel mono axis"));
+
+    const type = (d) => {
+        return {
+            day: +d.day,
+            hour: +d.hour,
+            value: +d.value
+        };
+    };
+
+    var graph =
+        {
+            "persons":[
+                {"id":0,"name":"S-Tier"},
+                {"id":1,"name":"A-Tier"},
+                {"id":2,"name":"B-Tier"},
+                {"id":3,"name":"C-Tier"},
+                {"id":4,"name":"S-Tier"},
+                {"id":5,"name":"A-Tier"}
+            ],
+            "months":[
+                {"id":0,"target":4,"value":9, "matchup": "AE"},
+                {"id":1,"target":5,"value":6, "matchup": "AF"},
+                {"id":2,"target":6,"value":3, "matchup": "AG"},
+                {"id":3,"target":7,"value":2, "matchup": "AH"},
+                {"id":4,"target":4,"value":9, "matchup": "BE"},
+                {"id":5,"target":5,"value":5, "matchup": "BF"},
+                {"id":6,"target":6,"value":5, "matchup": "BG"},
+                {"id":7,"target":7,"value":1, "matchup": "BH"},
+                {"id":8,"target":4,"value":9, "matchup": "CE"},
+                {"id":9,"target":5,"value":4, "matchup": "CF"},
+                {"id":10,"target":6,"value":4, "matchup": "CG"},
+                {"id":11,"target":7,"value":3, "matchup": "CH"}
+            ]};
+
+
+    var chartStat = {
+        _name: "",
+        get name() {
+            return this._name;
+        },
+        set name(value) {
+            this._name = value;
+        },
+        _message: "return avg rating and rank for node type",
+        get message() {
+            return this._message;
+        },
+        set message(value) {
+            this._message = value;
+        },
+        _name2: "",
+        get name2() {
+            return this._name2;
+        },
+        set name2(value) {
+            this._name2 = value;
+        },
+        _stat: "",
+        get stat() {
+            return this._stat;
+        },
+        set stat(value) {
+            this._stat = value;
+        },
+        _stat2: "",
+        get stat2() {
+            return this._stat2;
+        },
+        set stat2(value) {
+            this._stat2 = value;
+        }
+    };
+
+    const heatmapChart = function(tsvFile) {
+        d3.tsv(tsvFile, type, (error, data) => {
+            const colorScale = d3.scaleQuantize()
+                //.domain([0, buckets - 1, d3.max(data, (d) => d.value)])
+                .domain([0, buckets - 1, 50])
+                .range(colors);
+
+            const cards = svg.selectAll(".hour")
+                .data(data, (d) => d.day+':'+d.hour);
+
+            cards.append("title");
+
+            let colour_cards = cards.enter().append("circle")
+                .attr("class", "circle")
+                //.attr("x", (d) => (d.hour - 1) * gridSize)
+                .attr("cx", (d) => (d.hour - 1) * gridSize+20)
+                //.attr("y", (d) => (d.day - 1) * gridSize)
+                .attr("cy", (d) => (d.day - 1) * gridSize+24)
+                .attr("n", (d) => (d.value))
+                .attr("x", (d) => (d.hour))
+                .attr("y", (d) => (d.day))
+                //.attr("rx", 4)
+                //.attr("ry", 4)
+                .attr("r", 12)
+                .attr("class", "hour bordered")
+                .attr("width", gridSize)
+                .attr("height", gridSize)
+                .style("fill", colors[0])
+                .merge(cards)
+                .transition()
+                .duration(1000)
+                .style("fill", function(d){
+                    if(d.value==0){
+                        return excessColors[0];
+                    }
+                    else{
+                        return excessColors[Math.floor(d.value/10)+1];
+                    }
+                }); ///IMPORTANT
+
+                //.style("fill", (d) => excessColors[Math.floor(d.value/10)]); ///IMPORTANT
+                //.style("fill", (d) => colorScale(d.value));
+
+            cards.select("title").text((d) => d.value);
+
+
+            cards.exit().remove();
+
+            const timesAxis = svg.selectAll(".day")
+                //.data(data, (d) => d.value);
+                .data(times, (d) => d.hour);
+
+            const times_g = timesAxis.enter().append("g")
+                .attr("class", "legend2");
+
+            let times_group = times_g.append("rect")
+                .attr("x", (d, i) => gridSize * i+10)
+                .attr("y", height-300+14)
+                .attr("id", (d, i) => i)
+                .attr("rx", 4)
+                .attr("ry", 4)
+                .attr("n", (d, i) => names[i])
+                .attr("width", gridSize / 2)
+                .attr("height", gridSize / 2)
+                //.on("click", toggle)
+
+                .style("fill", (d, i) => nameColors[i])
+
+                .on("mouseover", function(){
+                    //var s = d.source.name;
+                    //var s = (d, i) => i;
+                    let this_group = d3.select(this);
+                    var n = this.id
+                    //categoryVal[0]=n
+                    //stats_g.text((d,i) => categories[i]+":"+categoryVal[i])
+                    //alert("Put a message here."+n)
+                    //var n = this.x/legendElementWidth;
+                    //chartStat.name = this_group.attr("id")
+                    chartStat.name = "Month: "+times[n]
+                    chart_name.text(chartStat.name)
+                    var total = 0
+                    var max = 0
+                    var min = 0
+                    var maxName = ""
+
+                    d3.selectAll("circle")
+                        //.filter(function(d) { return  n != d.value; })
+                        //.filter(function(d) { return  n != Math.floor(d.value/10);
+                        .filter(function(d) {
+                            if(d.hour-1==n){
+                                total+=d.value
+                                min=d.value
+                                if(min>max){
+                                    maxName=names[d.day-1]
+                                    max=min
+                                }
+                            }
+                            return  n != d.hour-1; }
+                        )
+                        .style('opacity', 0.1)
+                        chartStat.name2 = max
+                        chart_name2.text(chartStat.name2);
+                        chartStat.name2 = "Most Active discussion with: "+maxName
+                        chart_name2.text(chartStat.name2)
+                        chartStat.stat = "Number of messages from "+maxName+" in " +times[n]+": "+max
+                        chart_stat.text(chartStat.stat)
+                        chartStat.stat2 = "Total Messages in Month "+times[n]+": "+total
+                        chart_stat2.text(chartStat.stat2);
+                    //d3.selectAll("." + s).style('opacity', 1);
+                })
+                .on("mouseout", function(){
+                    chartStat.name = ""
+                    chart_name.text(chartStat.name)
+                    chartStat.name2 = ""
+                    chart_name2.text(chartStat.name2)
+                    chartStat.stat = ""
+                    chart_stat.text(chartStat.stat)
+                    chartStat.stat2 = ""
+                    chart_stat2.text(chartStat.stat2)
+                    d3.selectAll("circle").style('opacity', 1);
+                });
+
+            timesAxis.exit().remove();
+
+            const namesAxis = svg.selectAll(".day")
+                //.data(data, (d) => d.value);
+                .data(names, (d) => d.day);
+
+            const names_g = namesAxis.enter().append("g")
+                .attr("class", "legend2");
+
+            let names_group = names_g.append("rect")
+                //.attr("x", (d, i) => gridSize * i+10)
+                .attr("x", -100)
+                .attr("y", (d, i) => gridSize * i+14)
+                //.attr("y", height-330+14)
+                .attr("id", (d, i) => i)
+                .attr("rx", 4)
+                .attr("ry", 4)
+                .attr("n", (d, i) => names[i])
+                .attr("width", gridSize / 2)
+                .attr("height", gridSize / 2)
+                //.on("click", toggle)
+
+                .style("fill", (d, i) => nameColors[i])
+
+                .on("mouseover", function(){
+                    //var s = d.source.name;
+                    //var s = (d, i) => i;
+                    let this_group = d3.select(this);
+                    var n = this.id
+                    //categoryVal[0]=n
+                    //stats_g.text((d,i) => categories[i]+":"+categoryVal[i])
+                    //alert("Put a message here."+n)
+                    //var n = this.x/legendElementWidth;
+                    chartStat.name = "Name: "+names[n]
+                    //chartStat.name = this_group.attr("id")
+                    chart_name.text(chartStat.name)
+                    var total = 0
+                    var max = 0
+                    var min = 0
+                    var maxTime = ""
+                    d3.selectAll("circle")
+                        //.filter(function(d) { return  n != d.value; })
+                        //.filter(function(d) { return  n != Math.floor(d.value/10); })
+                        .filter(function(d) {
+                            if(d.day-1==n){
+                                total+=d.value
+                                min=d.value
+                                if(min>max){
+                                    maxTime=times[d.hour-1]
+                                    max=min
+                                }
+                            }
+                            return  n != d.day-1; }
+                        )
+                        .style('opacity', 0.1)
+                        chartStat.name2 = "Most Active During: "+maxTime
+                        chart_name2.text(chartStat.name2)
+                        chartStat.stat = "Number of Messages from " +names[n]+" in "+maxTime +": "+max
+                        chart_stat.text(chartStat.stat)
+                        chartStat.stat2 = "Total Messages from "+names[n]+" in a Year: "+total
+                        chart_stat2.text(chartStat.stat2);
+                    //d3.selectAll("." + s).style('opacity', 1);
+                })
+                .on("mouseout", function(){
+                    chartStat.name = ""
+                    chart_name.text(chartStat.name)
+                    chartStat.name2 = ""
+                    chart_name2.text(chartStat.name2)
+                    chartStat.stat = ""
+                    chart_stat.text(chartStat.stat)
+                    chartStat.stat2 = ""
+                    chart_stat2.text(chartStat.stat2)
+                    d3.selectAll("circle").style('opacity', 1);
+                });
+
+            namesAxis.exit().remove();
+
+
+            const legend = svg.selectAll(".value")
+                //.data(data, (d) => d.value);
+                .data(colors, (d) => d.value);
+
+            const legend_g = legend.enter().append("g")
+                .attr("class", "legend");
+
+            let colour_group = legend_g.append("rect")
+                .attr("x", (d, i) => legendElementWidth * i)
+                .attr("y", height+40)
+                .attr("id", (d, i) => i)
+                .attr("rx", 4)
+                .attr("ry", 4)
+                .attr("n", (d, i) => colors[i])
+                .attr("width", legendElementWidth)
+                .attr("height", gridSize / 2)
+                //.on("click", toggle)
+
+                .style("fill", (d, i) => colors[i])
+
+            .on("mouseover", function(){
+                //var s = d.source.name;
+                //var s = (d, i) => i;
+                let this_group = d3.select(this);
+                var n = this.id
+                //categoryVal[0]=n
+                //stats_g.text((d,i) => categories[i]+":"+categoryVal[i])
+                //alert("Put a message here."+n)
+                //var n = this.x/legendElementWidth;
+                //chartStat.name = this_group.attr("id")
+                //chart_name.text(chartStat.name)
+                d3.selectAll("circle")
+                    //.filter(function(d) { return  n != d.value; })
+                    .filter(function(d) {
+                        if(n==5){
+                            return  n > Math.floor(d.value/10)+1;
+                        }
+                        else if(n==0){
+                            return  0 != d.value/10;
+                        }
+                        else{
+                            return  n != Math.floor(d.value/10)+1 || 0 == d.value/10;
+                        }}
+                    )
+                    .style('opacity', 0.1);
+                //d3.selectAll("." + s).style('opacity', 1);
+            })
+            .on("mouseout", function(){
+                d3.selectAll("circle").style('opacity', 1);
+            });
+
+            legend_g.append("text")
+                .attr("class", "mono")
+                //.text((d,i) => "≥ " + i+"0")
+                .text(function(d,i) {
+                    if(i==5){
+                        return "> " + (i*10-10);
+                    }
+                    else if(i==0){
+                        return "= 0";
+                    }
+
+                    else{
+                        return "≤ " + (i*10);
+                    }
+
+                })
+                .attr("x", (d, i) => legendElementWidth * i)
+                .attr("y", height + gridSize+40);
+
+            legend.exit().remove();
+
+            const axes = svg.selectAll(".value")
+                //.data(data, (d) => d.value);
+                //.data(data, (d) => d.day+':'+d.hour+':'+d.value);
+                //.data(colors, (d) => d.value);
+                .data(categories, (d) => d.value);
+
+            const axes_g = axes.enter().append("g")
+                .attr("class", "stats");
+
+            let xAxis = axes_g.append("text")
+                .attr("class", "xA")
+                //.text((d,i) => "≥ " + i+"0")
+                .text("Name")
+                .attr("x", gridSize-160)
+                .attr("y", height-420+legendElementWidth)
+                .attr("transform", `rotate(-90)`);
+            let yAxis = axes_g.append("text")
+                .attr("class", "yA")
+                //.text((d,i) => "≥ " + i+"0")
+                .text("Month")
+                .attr("x", gridSize+160)
+                .attr("y", height-375+legendElementWidth);
+
+            let cAxis = axes_g.append("text")
+                .attr("class", "cA")
+                //.text((d,i) => "≥ " + i+"0")
+                .text("Magnitude")
+                .attr("x", gridSize+145)
+                .attr("y", height-45+legendElementWidth);
+
+            axes.exit().remove();
+
+            const stats = svg.selectAll(".value")
+                //.data(data, (d) => d.value);
+                //.data(data, (d) => d.day+':'+d.hour+':'+d.value);
+                //.data(colors, (d) => d.value);
+                .data(categories, (d) => d.value);
+
+
+            const stats_g = stats.enter().append("g")
+                .attr("class", "stats");
+            /*
+            stats_g.append("rect")
+                .attr("x", (d, i) => legendElementWidth * i)
+                .attr("y", height+40)
+                .attr("id", (d, i) => i)
+                .attr("rx", 4)
+                .attr("ry", 4)
+                .attr("n", (d, i) => colors[i])
+                .attr("width", legendElementWidth)
+                .attr("height", gridSize / 2)
+                //.on("click", toggle)
+
+                .style("fill", (d, i) => colors[i])
+
+                .on("mouseover", function(){
+                    //var s = d.source.name;
+                    //var s = (d, i) => i;
+                    var n = this.id;
+                    //alert("Put a message here."+n)
+                    //var n = this.x/legendElementWidth;
+                    d3.selectAll("circle")
+                        //.filter(function(d) { return  n != d.value; })
+                        .filter(function(d) { return  n != Math.floor(d.value/10); })
+                        .style('opacity', 0.1);
+                    ;
+                    //d3.selectAll("." + s).style('opacity', 1);
+                })
+                .on("mouseout", function(){
+                    d3.selectAll("circle").style('opacity', 1);
+                })
+
+            ;
+             */
+            let chart_name = stats_g.append("text")
+                .attr("class", "text2")
+                //.text("TEST")
+                .text(chartStat.name)
+                //.text((d,i) => categories[i]+":"+categoryVal[i])
+                .attr("x", legendElementWidth+400)
+                .attr("y", height-300+legendElementWidth);
+                //.attr("y", (d, i) => height-300+legendElementWidth * i/10*7);
+
+            let chart_name2 = stats_g.append("text")
+                .attr("class", "text2")
+                //.text("TEST")
+                .text(chartStat.name2)
+                //.text((d,i) => categories[i]+":"+categoryVal[i])
+                .attr("x", legendElementWidth+400)
+                .attr("y", height-270+legendElementWidth);
+
+            let chart_stat = stats_g.append("text")
+                .attr("class", "text2")
+                //.text("TEST")
+                .text(chartStat.name2)
+                //.text((d,i) => categories[i]+":"+categoryVal[i])
+                .attr("x", legendElementWidth+400)
+                .attr("y", height-240+legendElementWidth);
+
+            let chart_stat2 = stats_g.append("text")
+                .attr("class", "text2")
+                //.text("TEST")
+                .text(chartStat.name2)
+                //.text((d,i) => categories[i]+":"+categoryVal[i])
+                .attr("x", legendElementWidth+400)
+                .attr("y", height-210+legendElementWidth);
+            //.attr("y", (d, i) => height-300+legendElementWidth * i/10*7);
+
+            stats.exit().remove();
+
+        });
+    };
+
+    function toggle(legend) {
+        const { lowerBound, upperBound, selected } = legend;
+
+        legend.selected = !selected;
+
+        const cards = svg.selectAll(".hour")
+            .data(!selected, (d) => d.day+':'+d.hour);
+
+        const highlightedDates = cards.map(d => ({
+            day: d.day,
+            value: d.value.filter(
+                v => v.value > lowerBound && v.value <= upperBound
+            )
+        }));
+
+        year
+            .data(highlightedDates)
+            .selectAll("rect")
+            .data(d => d.day, d => d.time)
+            .transition()
+            .duration(500)
+            .attr("fill", d => (legend.selected ? colorFn(d.value) : "white"));
+    }
+
+    heatmapChart(datasets[0]);
+    
+    ///CONTINUE HERE
+    const datasetpicker = d3.select("#dataset-picker")
+        .selectAll(".dataset-button")
+        .data(datasets);
+
+    datasetpicker.enter()
+        .append("input")
+        .attr("value", (d) => "Dataset " + d)
+        .attr("type", "button")
+        .attr("class", "dataset-button")
+        .on("click", (d) => heatmapChart(d));
+
+</script>
+
+</body>
+</html>
