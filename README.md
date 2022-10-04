@@ -5,6 +5,3 @@ Heatmap graph visualizing the number of messages received each month from 6 cont
 Created with HTML and CSS
 
 Configured with WebStorm 2021.2.2
-
-Video:
-https://youtu.be/zMrSOvwVRB8
